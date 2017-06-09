@@ -1,3 +1,27 @@
+/////////////////// Histograms //////////////
+
+//// This file lists all of the histograms that will be made in the output root file
+//// 
+//// The Histograms, to facilitate ease of adding similar values, are organized into "FillGroups" that can be 
+//// turned on or off.  These fill groups are implimented in the Analyzer in the fill_folders function, so any
+//// new histograms that need to be added will be done in that function.  
+//// Histograms are flexible, so if you don't want a histogram, it can be commented out.  If the analyzer has
+//// a histogram implimented, but it is not listed in this file, then the code will not complain.  
+//// The Histograms themselves are implimented similarly to root histos.  First give the name, the number of bins
+//// then the low and high value for the histogram.
+//// ie
+//// <Histogram name>  <N bins> <min> <max>
+//// For 2D histograms, you simply add another set of bins, min, and max for the y-axis.
+//// If you are trying to put a new histogram into the analyzer, NOTE: the analyzer uses the histogram name, but
+//// without the particle names and/or with names replaced with "Part1" or "Part2".  This is to facilitate similar
+//// particles using similar histograms.
+//// ie
+//// Muon1Pt ==> Pt
+//// DiMuon_Muon1MetMt ==> Part1MetMt
+
+///////////////////////////////////////////////
+
+
 FillRun 1
 Events        2   0.    2.
 NVertices   100   0.  100.
@@ -105,7 +129,7 @@ Muon2MetMt              100   0      500
 
 FillJet1 0
 
-NJet1         20   0.    20.
+ NJet1         20   0.    20.
 Jet1Energy   200   0.   500.
 Jet1Pt       200   0.   500.
 Jet1Eta      100  -5.0   +5.0
