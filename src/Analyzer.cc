@@ -114,6 +114,7 @@ Analyzer::Analyzer(string infile, string outfile, bool setCR) : goodParts(getArr
   isData = distats["Run"].bmap.at("isData");
   CalculatePUSystematics = distats["Run"].bmap.at("CalculatePUSystematics");
   initializePileupInfo(distats["Run"].smap.at("MCHistos"), distats["Run"].smap.at("DataHistos"),distats["Run"].smap.at("DataPUHistName"),distats["Run"].smap.at("MCPUHistName"));
+  initializeISRWeightInfo(distats["Run"].smap.at("ISRweightHistos"));;
 
 
   if(!isData) {
@@ -378,6 +379,12 @@ void Analyzer::preprocess(int event) {
 
   ////Dijet cuts
   getGoodDiJets(distats["DiJet"]);
+
+
+  if(ISDYSAMPLEREPLACETHIS){
+
+      isrWeight=getISRWeight(double pt);
+  }
 
   if( event < 10 || ( event < 100 && event % 10 == 0 ) ||
     ( event < 1000 && event % 100 == 0 ) ||
@@ -1723,6 +1730,23 @@ void Analyzer::initializePileupInfo(string MCHisto, string DataHisto, string Dat
   file2->Close();
 
 }
+
+void Analyzer::initializeISRWeightInfo(string ISRweightHisto){
+  TFile *file1 = new TFile((PUSPACE+ISRweightHisto).c_str());
+  histisr = (TH1D*)file1->FindObjectAny("isrweight_1");
+  if(!histisr) throw std::runtime_error("failed to extract histogram");
+}
+
+double Analyzer::getISRWeight(double pt){
+  int ibin = histisr->FindBin(pt);
+  if(ibin==0){
+    return histisr->GetBinContent(1);
+  }else if(ibin==histisr->GetNbins()){
+    return histisr->GetBinContent(histisr->GetNbins()-1);
+  }
+  return histisr->GetBinContent(ibin);
+}
+
 
 double normPhi(double phi) {
   static double const TWO_PI = TMath::Pi() * 2;

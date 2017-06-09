@@ -71,6 +71,8 @@ private:
   void getInputs();
   void setupJob(string);
   void initializePileupInfo(string, string, string, string);
+  void initializeISRWeightInfo(string ISRweightHisto);
+  double getISRWeight(double pt);
   void read_info(string);
   void setupGeneral(TTree*, string);
   void setCutNeeds();
@@ -123,6 +125,7 @@ private:
   TFile* f;
   TTree* BOOM;
   double hPU[100];
+  TH1D* histisr;
 
   Generated* _Gen;
   Electron* _Electron;
