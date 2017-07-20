@@ -15,6 +15,7 @@ void usage() {
   cout << "Available options are:\n";
   cout << "-CR: to run over the control regions (not the usual output)\n";
   cout << "-C: use a different config folder than the default 'PartDet'\n";
+  cout << "-t: run over 100 events\n";
   cout << "\n";
 
   exit(EXIT_FAILURE);
@@ -110,6 +111,7 @@ int main (int argc, char* argv[]) {
   size_t Nentries=testing.nentries;
   if(testRun){
     Nentries=100;
+    testing.nentries=100;
   }
   //main event loop
   for(size_t i=0; i < Nentries; i++) {

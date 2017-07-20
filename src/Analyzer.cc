@@ -100,6 +100,7 @@ Analyzer::Analyzer(vector<string> infiles, string outfile, bool setCR, string co
   cout << "setup start" << endl;
 
   BOOM= new TChain("TNT/BOOM");
+  infoFile=0;
 
   //gEnv->SetValue("TFile.Recover", 0);
 
@@ -145,7 +146,7 @@ Analyzer::Analyzer(vector<string> infiles, string outfile, bool setCR, string co
     for(auto &it : distats["Systematics"].bmap) {
       if( it.first == "useSystematics")
         doSystematics= it.second;
-      else if( it.second) {
+      else if( it.second and doSystematics) {
         syst_names.push_back(it.first);
         syst_parts.push_back(getArray());
       }
@@ -343,6 +344,42 @@ void Analyzer::setupCR(string var, double val) {
 
 ////destructor
 Analyzer::~Analyzer() {
+  clear_values();
+  delete BOOM;
+  delete _Electron;
+  delete _Muon;
+  delete _Tau;
+  delete _Jet;
+  if(!isData) delete _Gen;
+
+  for(auto pair: fillInfo) {
+    delete pair.second;
+    pair.second=nullptr;
+  }
+
+  for(auto e: Enum<CUTS>()) {
+    delete goodParts[e];
+    goodParts[e]=nullptr;
+  }
+  //for(auto &it: syst_parts) {
+    //for(auto e: Enum<CUTS>()) {
+      //if( it[e] != nullptr) {
+      //if(it.find(e) != it.end()){
+        //delete it[e];
+        //it[e]=nullptr;
+      //}
+      //}
+    //}
+  //}
+  for(auto it: testVec){
+    delete it;
+    it=nullptr;
+  }
+
+  for(int i=0; i < nTrigReq; i++) {
+    delete trigPlace[i];
+    delete trigName[i];
+  }
 
 }
 
@@ -455,7 +492,8 @@ void Analyzer::preprocess(int event) {
     ( event < 1000 && event % 100 == 0 ) ||
     ( event < 10000 && event % 1000 == 0 ) ||
     ( event >= 10000 && event % 10000 == 0 ) ) {
-       cout << setprecision(2)<<event << " Events analyzed "<< static_cast<double>(event)/nentries*100. <<"% done"<<endl;;
+       cout << setprecision(2)<<event << " Events analyzed "<< static_cast<double>(event)/nentries*100. <<"% done"<<endl;
+       cout << fixed;
   }
 }
 
@@ -1084,11 +1122,11 @@ void Analyzer::smearLepton(Lepton& lep, CUTS eGenPos, const PartStats& stats, st
         TLorentzVector genVec =  matchLeptonToGen(lep.Reco.at(i), lep.pstats["Smear"],eGenPos);
         if(genVec != TLorentzVector(0,0,0,0)) {
           if(syst=="orig"){
-            smearedPt = (genVec.Pt()*scale) + (lep.Reco[i].Pt() - genVec.Pt())*(resolution);
+            smearedPt = ((genVec.Pt()*scale) + (lep.Reco[i].Pt() - genVec.Pt())*(resolution))/lep.Reco[i].Pt();
           }else if(dores){
-            smearedPt = (genVec.Pt()*scale) + (lep.Reco[i].Pt() - genVec.Pt())*(syst_res);
+            smearedPt = ((genVec.Pt()*scale) + (lep.Reco[i].Pt() - genVec.Pt())*(syst_res))/lep.Reco[i].Pt();
           }else if(doscale){
-            smearedPt = (genVec.Pt()*(syst_scale)) + (lep.Reco[i].Pt() - genVec.Pt())*(resolution);
+            smearedPt = ((genVec.Pt()*(syst_scale)) + (lep.Reco[i].Pt() - genVec.Pt())*(resolution))/lep.Reco[i].Pt();
           }
           //double smearedEta =(genVec.Eta()*stats.dmap.at("EtaScaleOffset")) + (lep.Reco[i].Eta() - genVec.Eta())*stats.dmap.at("EtaSigmaOffset");
           //double smearedPhi = (genVec.Phi() * stats.dmap.at("PhiScaleOffset")) + (lep.Reco[i].Phi() - genVec.Phi())*stats.dmap.at("PhiSigmaOffset");
@@ -1097,9 +1135,7 @@ void Analyzer::smearLepton(Lepton& lep, CUTS eGenPos, const PartStats& stats, st
         //}else{
           //cout<<"no gen"<<endl;
         }
-        //cout<<"before: "<<lep.Reco[i].Pt()<<" sf  "<<smearedPt<<" syst "<<syst <<endl;
         systematics.shiftParticle(lep, lep.Reco[i], smearedPt, _MET->systdeltaMEx[syst], _MET->systdeltaMEy[syst], syst);
-        //cout<<"after: "<<lep.systVec[syst]->at(i).Pt()<<endl;
       }
     }
   }
@@ -1114,7 +1150,8 @@ void Analyzer::smearJet(Particle& jet, const CUTS eGenPos, const PartStats& stat
     return;
   }
   //add energy scale uncertainty
-  if( !( isData || !stats.bmap.at("SmearTheJet") ) ) {
+  if( !isData || stats.bmap.at("SmearTheJet") || syst!="orig" ){
+  //if( !( isData || !stats.bmap.at("SmearTheJet") || syst!="orig" ) ) {
     if(syst=="orig"){
       //only for jets we want to use smearing
       jet.systVec["orig"]->clear();
@@ -1132,19 +1169,25 @@ void Analyzer::smearJet(Particle& jet, const CUTS eGenPos, const PartStats& stat
       if(jet.type == PType::Jet){
 
         TLorentzVector genJet=matchJetToGen(jet.Reco[i], jet.pstats["Smear"],eGenPos);
-        if(syst=="orig"){
+        if(syst=="orig" and stats.bmap.at("SmearTheJet")){
           sf=jetScaleRes.GetRes(jet.Reco[i],genJet, rho, 0);
         }else if(syst=="Jet_Res_Up"){
           sf=jetScaleRes.GetRes(jet.Reco[i],genJet, rho, 1);
         }else if(syst=="Jet_Res_Down"){
           sf=jetScaleRes.GetRes(jet.Reco[i],genJet, rho, -1);
         }else if(syst=="Jet_Scale_Up"){
-          sf = 1.+ jetScaleRes.GetScale(jet.Reco[i], false, +1.);
+          sf = jetScaleRes.GetScale(jet.Reco[i], false, +1.);
         }else if(syst=="Jet_Scale_Down"){
-          sf = 1.- jetScaleRes.GetScale(jet.Reco[i], false, -1) ;
+          sf = jetScaleRes.GetScale(jet.Reco[i], false, -1) ;
         }
       }
+      //if(abs(sf-1)>0.5){
+        //cout<<"before: "<<jet.Reco[i].Pt()<<" sf  "<<sf<<" syst "<<syst <<endl;
+      //}
       systematics.shiftParticle(jet, jet.Reco[i], sf, _MET->systdeltaMEx[syst], _MET->systdeltaMEy[syst], syst);
+      //if(abs(sf-1)>0.5){
+        //cout<<"after: "<<jet.systVec[syst]->at(i).Pt()<<endl;
+      //}
     }
   }
   jet.setCurrentP(syst);
@@ -1870,7 +1913,7 @@ void Analyzer::fill_Folder(string group, const int max, Histogramer &ihisto, int
    * histAddVal(val, name) histo.addVal(val, group, max, name, wgt)
    * so each histogram knows the group, max and weight!
    */
-  if(group == "FillRun") {
+  if(group == "FillRun" and syst==-1) {
     if(crbins != 1) {
       for(int i = 0; i < crbins; i++) {
         ihisto.addVal(false, group, i, "Events", 1);
@@ -2143,6 +2186,74 @@ void Analyzer::fill_Folder(string group, const int max, Histogramer &ihisto, int
       }
       if(lep2->type != PType::Tau){
         histAddVal(isZdecay(part2, *lep2), "Part2IsZdecay");
+      }
+
+
+      //electron tau stuff:
+      if(lep1->type == PType::Electron && lep2->type == PType::Electron){
+        //loop over taus to find a match in the unisolated taus:
+        int matchedTauInd=-1;
+        TLorentzVector matchedEle;
+        TLorentzVector unmatchedEle;
+        for( size_t itau =0; itau< _Tau->size(); itau++){
+          if(part2.DeltaR(_Tau->p4(itau))<0.3){
+            //we are sure that part1 passes the tight id
+            matchedTauInd=itau;
+            matchedEle=part2;
+            unmatchedEle=part1;
+          }else if(part1.DeltaR(_Tau->p4(itau))<0.3){
+            //check if part2 passes the tight id:
+            if(find(active_part->at(CUTS::eRElec1)->begin(),active_part->at(CUTS::eRElec1)->end(),p2)!=active_part->at(CUTS::eRElec1)->end()){
+              matchedTauInd=itau;
+              matchedEle=part1;
+              unmatchedEle=part2;
+            }
+          }
+        }
+        if(matchedTauInd>=0){
+          if(find(active_part->at(CUTS::eRTau1)->begin(),active_part->at(CUTS::eRTau1)->end(),matchedTauInd)!=active_part->at(CUTS::eRTau1)->end()){
+            histAddVal(_Tau->p4(matchedTauInd).Pt(), "DiEleGoodTauMatchPt");
+            histAddVal(_Tau->p4(matchedTauInd).Pt()-matchedEle.Pt(), "DiEleGoodTauMatchDeltaPt");
+            histAddVal((_Tau->p4(matchedTauInd)+unmatchedEle).M(), "DiEleGoodTauMatchMass");
+            histAddVal((matchedEle+unmatchedEle).M(), "DiEleEleGoodMatchMass");
+            histAddVal(matchedEle.Pt(), "DiEleEleGoodMatchPt");
+            histAddVal(_Tau->leadChargedCandPtError->at(matchedTauInd),"DiEleleadChargedCandPtErrorGoodMatched");
+            histAddVal(_Tau->leadChargedCandValidHits->at(matchedTauInd),"DiEleleadChargedCandValidHitGoodMatched");
+            histAddVal2( matchedEle.Pt(),   (_Tau->p4(matchedTauInd).Pt()-matchedEle.Pt())/matchedEle.Pt(), "DiEleTauGoodMatchPt_vs_DeltaPt");
+            histAddVal2( matchedEle.Pt(),   matchedEle.Eta(), "DiEleTauGoodMatchPt_vs_eta");
+            histAddVal2( _Tau->pt(matchedTauInd),   _Tau->decayMode->at(matchedTauInd), "DiEleTauGoodMatchPt_vs_Decay");
+          }else{
+            histAddVal(_Tau->p4(matchedTauInd).Pt(), "DiEleTauMatchPt");
+            histAddVal(_Tau->p4(matchedTauInd).Pt()-matchedEle.Pt(), "DiEleTauMatchDeltaPt");
+            histAddVal((_Tau->p4(matchedTauInd)+unmatchedEle).M(), "DiEleTauMatchMass");
+            histAddVal((matchedEle+unmatchedEle).M(), "DiEleEleMatchMass");
+            histAddVal(matchedEle.Pt(), "DiEleEleMatchPt");
+            histAddVal(_Tau->leadChargedCandPtError->at(matchedTauInd),"DiEleleadChargedCandPtErrorMatched");
+            histAddVal(_Tau->leadChargedCandValidHits->at(matchedTauInd),"DiEleleadChargedCandValidHitsMatched");
+            histAddVal2( matchedEle.Pt(),   (_Tau->p4(matchedTauInd).Pt()-matchedEle.Pt())/matchedEle.Pt(), "DiEleTauMatchPt_vs_DeltaPt");
+            histAddVal2( matchedEle.Pt(),   matchedEle.Eta(), "DiEleTauMatchPt_vs_eta");
+            histAddVal2( _Tau->pt(matchedTauInd),   _Tau->decayMode->at(matchedTauInd), "DiEleTauMatchPt_vs_Decay");
+          }
+        }else{
+          histAddVal((part1+part2).M(), "DiEleEleUnMatchMass");
+          histAddVal(part2.Pt(), "DiEleEleUnMatchPt");
+          histAddVal2( part2.Pt(),   part2.Eta(), "DiEleUnMatchPt_vs_eta");
+          if(!isData){
+            histAddVal(part2.Pt(), "DiEleEleUnMatchPt_gen_"+to_string(abs(matchToGenPdg(part2,0.3))));
+          }
+          int found=-1;
+          for(size_t i=0; i< _Jet->size(); i++) {
+            if(part2.DeltaR(_Jet->p4(i)) <=0.4) {
+              found=i;
+            }
+          }
+          if (found>=0){
+            histAddVal(_Jet->chargedMultiplicity->at(found), "DiEleEleUnMatchJetMultiplicity");
+          }else{
+            histAddVal(-1, "DiEleEleUnMatchJetMultiplicity");
+          }
+
+        }
       }
     }
   }

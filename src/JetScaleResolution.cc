@@ -122,7 +122,7 @@ double JetScaleResolution::GetRes(const TLorentzVector& jet,const TLorentzVector
 
     const vector<double>& sfs = ressf[jet.Eta()];
     if(sfs.size()==0){
-      return(0.);
+      return(1.);
     }
     double s = sfs[0];
     //cout << sfs[0] << " " << sfs[1] << " " << sfs[2] << endl;

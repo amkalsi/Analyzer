@@ -113,10 +113,11 @@ outname(rhs.outname), NFolders(rhs.NFolders), isData(rhs.isData), CR(rhs.CR)
 Histogramer::~Histogramer() {
   if(outfile != nullptr)
     outfile->Close();
-
-  for(auto it: data_order) {
-    delete data[it];
-    data[it] = nullptr;
+  for(auto it: data) {
+    if( it.second != nullptr) {
+      delete it.second;
+      it.second = nullptr;
+    }
   }
 }
 
