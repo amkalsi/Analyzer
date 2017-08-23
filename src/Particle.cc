@@ -67,6 +67,8 @@ TLorentzVector& Particle::p4(uint index) {return cur_P->at(index);}
 TLorentzVector Particle::RecoP4(uint index)const {return Reco.at(index);}
 TLorentzVector& Particle::RecoP4(uint index) {return Reco.at(index);}
 
+void Particle::setP4(uint index, TLorentzVector &otherp4)const {cur_P->at(index)=otherp4;}
+void Particle::setP4(uint index, TLorentzVector &otherp4) {cur_P->at(index)=otherp4;}
 
 
 

@@ -58,6 +58,8 @@ public:
   TLorentzVector& p4(uint);
   TLorentzVector RecoP4(uint) const;
   TLorentzVector& RecoP4(uint);
+  void setP4(uint index, TLorentzVector &otherp4)const;
+  void setP4(uint index, TLorentzVector &otherp4);
 
   uint size() const;
   vector<TLorentzVector>::iterator begin();

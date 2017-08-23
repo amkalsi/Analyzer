@@ -108,6 +108,9 @@ Analyzer::Analyzer(vector<string> infiles, string outfile, bool setCR, string co
 
   CalculatePUSystematics = distats["Run"].bfind("CalculatePUSystematics");
   initializePileupInfo(distats["Run"].smap.at("MCHistos"), distats["Run"].smap.at("DataHistos"),distats["Run"].smap.at("DataPUHistName"),distats["Run"].smap.at("MCPUHistName"));
+  
+  //initializeTau(distats["Run"].smap.at("TauHistos"));
+
   syst_names.push_back("orig");
   unordered_map<CUTS, vector<int>*, EnumHash> tmp;
   syst_parts.push_back(tmp);
@@ -170,7 +173,7 @@ Analyzer::Analyzer(vector<string> infiles, string outfile, bool setCR, string co
       if(distats["Control_Region"].smap.find("Unblind") != distats["Control_Region"].smap.end()) {
 
         blinded = distats["Control_Region"].smap["Unblind"] == "false";
-        cout << "we have " << blinded << endl;
+	cout << "we have " << blinded << endl;
       }
     }
   }
@@ -389,6 +392,7 @@ void Analyzer::preprocess(int event) {
     smearJet(*_Jet,CUTS::eGJet,_Jet->pstats["Smear"], i);
     smearJet(*_FatJet,CUTS::eGJet,_FatJet->pstats["Smear"], i);
     updateMet(i);
+    treatMuons_Met("1");
     
   }
   
@@ -637,83 +641,67 @@ void Analyzer::updateMet(int syst) {
 ////////removed for teh time being/////////////
 ///////////////////////////////////////////////
 
-// void Analyzer::treatMuons_Met(string syst) {
+ void Analyzer::treatMuons_Met(string syst) {
 
-//   //syst not implemented for muon as tau or neutrino yet
-//   if( syst!="orig" or !( distats["Run"].bfind("TreatMuonsAsNeutrinos") || distats["Run"].bfind("TreatMuonsAsTaus")) ){
-//     return;
-//   }
+   //syst not implemented for muon as tau or neutrino yet
+   if( syst!="orig" or !( distats["Run"].bfind("TreatMuonsAsNeutrinos") || distats["Run"].bfind("TreatMuonsAsTaus")) ){
+     return;
+   }
 
-//   //  Neutrino update before calculation
-//   _MET->addP4Syst(_MET->p4(),"muMET");
-//   _MET->systdeltaMEx["muMET"]=0;
-//   _MET->systdeltaMEy["muMET"]=0;
+   //  Neutrino update before calculation
+   _MET->addP4Syst(_MET->p4(),0);
+   _MET->systdeltaMEx[0]=0;
+   _MET->systdeltaMEy[0]=0;
+/*
+   if(distats["Run"].bfind("TreatMuonsAsNeutrinos")) {
+     for(auto it : *active_part->at(CUTS::eRMuon1)) {
+       if(find(active_part->at(CUTS::eRMuon2)->begin(), active_part->at(CUTS::eRMuon2)->end(), it) != active_part->at(CUTS::eRMuon2)->end() ) continue;
+       _MET->systdeltaMEx["muMET"] += _Muon->p4(it).Px();
+       _MET->systdeltaMEy["muMET"] += _Muon->p4(it).Py();
+     }
+     for(auto it : *active_part->at(CUTS::eRMuon2)) {
+       _MET->systdeltaMEx["muMET"] += _Muon->p4(it).Px();
+       _MET->systdeltaMEy["muMET"] += _Muon->p4(it).Py();
+     }
+   }
+*/
 
-//   if(distats["Run"].bfind("TreatMuonsAsNeutrinos")) {
-//     for(auto it : *active_part->at(CUTS::eRMuon1)) {
-//       if(find(active_part->at(CUTS::eRMuon2)->begin(), active_part->at(CUTS::eRMuon2)->end(), it) != active_part->at(CUTS::eRMuon2)->end() ) continue;
-//       _MET->systdeltaMEx["muMET"] += _Muon->p4(it).Px();
-//       _MET->systdeltaMEy["muMET"] += _Muon->p4(it).Py();
-//     }
-//     for(auto it : *active_part->at(CUTS::eRMuon2)) {
-//       _MET->systdeltaMEx["muMET"] += _Muon->p4(it).Px();
-//       _MET->systdeltaMEy["muMET"] += _Muon->p4(it).Py();
-//     }
-//   }
-//   // else if(distats["Run"].bmap.at("TreatMuonsAsTaus")) {
+  if(distats["Run"].bfind("TreatMuonsAsTaus")) {
 
-//   //   if(active_part->at(CUTS::eRMuon1)->size() == 1) {
+    if(active_part->at(CUTS::eRMuon1)->size() == 1) {
 
-//   //     int muon = (int)active_part->at(CUTS::eRMuon1)->at(0);
+      int muon = (int)active_part->at(CUTS::eRMuon1)->at(0);
 
-//   //     double rand1 = 1;//Tau_HFrac->GetRandom();
-//   //     double rand2 = 0;//Tau_Resol->GetRandom();
+      double rand1 = 1;//Tau_HFrac->GetRandom();
+      double rand2 = 0;//Tau_Resol->GetRandom();
 
-//   //     double ETau_Pt = _Muon->p4(muon).Pt()*rand1*(rand2+1.0);
-//   //     double ETau_Eta = _Muon->p4(muon).Eta();
-//   //     double ETau_Phi=normPhi(_Muon->p4(muon).Phi());//+DeltaNu_Phi->GetRandom());
-//   //     double ETau_Energy = 0.;
+      double ETau_Pt = _Muon->p4(muon).Pt()*rand1*(rand2+1.0);
+      double ETau_Eta = _Muon->p4(muon).Eta();
+      double ETau_Phi=normPhi(_Muon->p4(muon).Phi());//+DeltaNu_Phi->GetRandom());
+      double ETau_Energy = 0.;
 
 
-//   //     // double theta = 2.0*TMath::ATan2(1.0,TMath::Exp(_Muon->p4(muon).Eta()));
-//   //     // double sin_theta = TMath::Sin(theta);
-//   //     // double P_tau = ETau_Pt/sin_theta;
+      TLorentzVector Emu_Tau;
+      Emu_Tau.SetPtEtaPhiE(ETau_Pt, ETau_Eta, ETau_Phi, ETau_Energy);
+      //_Muon->at(CUTS::eRMuon1)->clear();
 
-//   //     // //ETau_Energy = sqrt(pow(P_tau, 2) + pow(1.77699, 2));
-//   //     // ETau_Energy = sqrt( pow(1.77699, 2) + pow(ETau_Pt, 2) + pow(_Muon->p4(muon).Pz(), 2));
+      if (ETau_Pt >= _Muon->pstats["Muon1"].pmap.at("PtCut").first ){
+        _Muon->setP4(muon,Emu_Tau);
+        _MET->systdeltaMEy[0] += (_Muon->p4(muon).Px()-Emu_Tau.Px());
+        _MET->systdeltaMEy[0] += (_Muon->p4(muon).Py()-Emu_Tau.Py());
+      }
+    }
+  }
+  // recalculate MET
+   updateMet(1);
 
-//   //     /*if(ETau_Pt <= 15.0){
-//   //       while(ETau_Pt<=15.0){
-//   //       rand1 = Tau_HFrac->GetRandom();
-//   //       rand2 = Tau_Resol->GetRandom();
-//   //       ETau_Pt = _Muon->p4(muon).Pt()*rand1*(rand2+1.0);
-//   //       ENu_Pt = _Muon->p4(muon).Pt()-ETau_Pt;
-//   //       }
-//   //     }
-//   //     */
+   /////MET CUTS
+   active_part->at(CUTS::eMET)->clear();
+   if(passCutRange(_MET->pt(), distats["Run"].pmap.at("MetCut"))) {
+   active_part->at(CUTS::eMET)->push_back(1);
+   }
 
-//   //     TLorentzVector Emu_Tau;
-//   //     Emu_Tau.SetPtEtaPhiE(ETau_Pt, ETau_Eta, ETau_Phi, ETau_Energy);
-//   //     _Muon->cur_P->clear();
-
-//   //     if (ETau_Pt >= _Muon->pstats["Muon1"].pmap.at("PtCut").first ){
-//   //       _Muon->cur_P->push_back(Emu_Tau);
-//   //       _MET->systdeltaMEy["muMET"] += (_Muon->p4(muon).Px()-Emu_Tau.Px());
-//   //       _MET->systdeltaMEy["muMET"] += (_Muon->p4(muon).Py()-Emu_Tau.Py());
-
-//   //     }
-//   //   }
-//   //}
-//   // recalculate MET
-//   //  _MET->update("muMET");
-
-//   /////MET CUTS
-//   active_part->at(CUTS::eMET)->clear();
-
-//   if(passCutRange(_MET->pt(), distats["Run"].pmap.at("MetCut"))) {
-//     active_part->at(CUTS::eMET)->push_back(1);
-//   }
-// }
+}
 
 
 /////sets up other values needed for analysis that aren't particle specific
@@ -1515,7 +1503,6 @@ void Analyzer::getGoodDiJets(const PartStats& stats, const int syst) {
       jet1 = _Jet->p4(ij1);
       
       bool passCuts = true;
-      //cout<<"---------------------"<<endl;
       for(auto cut : stats.bset) {
         //cout<<cut<<"    "<<passCuts<<endl;;
         if(!passCuts) break;
@@ -1940,6 +1927,26 @@ void Analyzer::initializePileupInfo(string MCHisto, string DataHisto, string Dat
   file2->Close();
 
 }
+
+void Analyzer::initializeTau(string Histo){
+
+  TFile *file3 = new TFile((PUSPACE+Histo).c_str());
+  TH1D* h1 = (TH1D*)file3->FindObjectAny("RecoFractionM_HTau_1");
+  if(!h1) throw std::runtime_error("failed to extract histogram");
+  TH1D* h2 = (TH1D*)file3->FindObjectAny("RecoFractionM_HTau_2");
+  if(!h2) throw std::runtime_error("failed to extract histogram");
+  TH1D* h3 = (TH1D*)file3->FindObjectAny("RecoFractionM_HTau_3");
+  if(!h3) throw std::runtime_error("failed to extract histogram");
+  TH1D* h4 = (TH1D*)file3->FindObjectAny("RecoFractionM_HTau_4");
+  if(!h4) throw std::runtime_error("failed to extract histogram");
+  TH1D* h5 = (TH1D*)file3->FindObjectAny("MReco_TauPt");
+  if(!h5) throw std::runtime_error("failed to extract histogram");
+  TH1D* h6 = (TH1D*)file3->FindObjectAny("TauJet1Pt");
+  if(!h6) throw std::runtime_error("failed to extract histogram");
+
+  file3->Close();
+}
+
 
 ///Normalizes phi to be between -PI and PI
 double normPhi(double phi) {

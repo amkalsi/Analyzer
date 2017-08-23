@@ -80,6 +80,7 @@ private:
   void getInputs();
   void setupJob(string);
   void initializePileupInfo(string, string, string, string);
+  void initializeTau(string);
   void read_info(string);
   void setupGeneral();
   void initializeTrigger();
@@ -129,6 +130,7 @@ private:
   bool findCut(const vector<string>&, string);
   
   void updateMet(int syst=0);
+  void treatMuons_Met(string syst);
   //  void treatMuons_Met(string syst="orig");
   double getPileupWeight(float);
   unordered_map<CUTS, vector<int>*, EnumHash> getArray();
